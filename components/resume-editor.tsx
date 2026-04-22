@@ -1,7 +1,7 @@
 "use client";
 
-import { Plus, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Plus, Trash2, CalendarDays, Sparkles } from 'lucide-react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import type { ResumeData, TemplateName } from '@/lib/types';
 import { defaultResume } from '@/lib/templates';
 import { TemplateGallery } from '@/components/template-gallery';
@@ -18,8 +18,55 @@ export function ResumeEditor({ initialData = defaultResume, initialTemplate = 'm
   const [title, setTitle] = useState(initialTitle);
   const [template, setTemplate] = useState<TemplateName>(initialTemplate);
   const [data, setData] = useState<ResumeData>(initialData);
+  const [suggestedSkills, setSuggestedSkills] = useState<string[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const dateRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const skillsText = useMemo(() => data.skills.join(', '), [data.skills]);
+
+  const fetchSuggestedSkills = async (jobTitle: string) => {
+    if (!jobTitle.trim()) {
+      setSuggestedSkills([]);
+      return;
+    }
+    
+    setLoadingSuggestions(true);
+    try {
+      const response = await fetch('/api/ai/suggest-skills', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobTitle })
+      });
+      
+      if (response.ok) {
+        const result = await response.json() as { skills: string[] };
+        // Filter out skills already added
+        const newSkills = result.skills.filter(skill => !data.skills.includes(skill));
+        setSuggestedSkills(newSkills);
+      }
+    } catch (error) {
+      console.error('Failed to fetch skill suggestions:', error);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
+
+  // Debounce skill suggestions - fetch when any job title changes
+  useEffect(() => {
+    const latestJobTitle = data.experience[data.experience.length - 1]?.role || '';
+    const debounceTimer = setTimeout(() => {
+      if (latestJobTitle) {
+        fetchSuggestedSkills(latestJobTitle);
+      }
+    }, 500);
+    
+    return () => clearTimeout(debounceTimer);
+  }, [data.experience.map(e => e.role).join(','), data.skills]);
+
+  const openDatePicker = (refKey: string) => {
+    const input = dateRefs.current[refKey];
+    if (input) input.showPicker();
+  };
 
   const updateExperience = (index: number, key: keyof ResumeData['experience'][number], value: string) => {
     setData((current) => {
@@ -42,7 +89,7 @@ export function ResumeEditor({ initialData = defaultResume, initialTemplate = 'm
   const addExperience = () => {
     setData((current) => ({
       ...current,
-      experience: [...current.experience, { company: '', role: '', start: '', end: '', highlights: [''] }]
+      experience: [...current.experience, { company: '', role: '', location: '', employmentType: '', start: '', end: '', highlights: [''] }]
     }));
   };
 
@@ -144,19 +191,66 @@ export function ResumeEditor({ initialData = defaultResume, initialTemplate = 'm
         <div className="glass-panel rounded-[28px] p-6 space-y-4">
           <div className="flex items-center justify-between gap-4">
             <h2 className="display-font text-2xl font-semibold">Experience</h2>
-            <button type="button" onClick={addExperience} className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-semibold">
-              <Plus size={16} /> Add role
-            </button>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={!data.hasExperience}
+                onChange={(event) => setData({ ...data, hasExperience: !event.target.checked })}
+                className="w-4 h-4"
+              />
+              <span className="text-sm font-semibold text-ink/70">Never been employed</span>
+            </label>
           </div>
-          <div className="space-y-4">
+          {data.hasExperience ? (
+            <>
+              <div className="flex items-center gap-2 mb-2">
+                <button type="button" onClick={addExperience} className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-white px-4 py-2 text-sm font-semibold">
+                  <Plus size={16} /> Add role
+                </button>
+              </div>
+              <div className="space-y-4">
             {data.experience.map((experience, index) => (
               <div key={`${index}-${experience.company}`} className="rounded-[24px] border border-ink/10 bg-white p-4">
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div className="grid gap-3 flex-1 md:grid-cols-2">
                     <input value={experience.company} onChange={(event) => updateExperience(index, 'company', event.target.value)} placeholder="Company" className="rounded-2xl border border-ink/10 bg-paper/50 px-4 py-3 outline-none" />
-                    <input value={experience.role} onChange={(event) => updateExperience(index, 'role', event.target.value)} placeholder="Role" className="rounded-2xl border border-ink/10 bg-paper/50 px-4 py-3 outline-none" />
-                    <input value={experience.start} onChange={(event) => updateExperience(index, 'start', event.target.value)} placeholder="Start" className="rounded-2xl border border-ink/10 bg-paper/50 px-4 py-3 outline-none" />
-                    <input value={experience.end} onChange={(event) => updateExperience(index, 'end', event.target.value)} placeholder="End" className="rounded-2xl border border-ink/10 bg-paper/50 px-4 py-3 outline-none" />
+                    <input value={experience.role} onChange={(event) => updateExperience(index, 'role', event.target.value)} placeholder="Job Title" className="rounded-2xl border border-ink/10 bg-paper/50 px-4 py-3 outline-none" />
+                    <input value={experience.location} onChange={(event) => updateExperience(index, 'location', event.target.value)} placeholder="Location" className="rounded-2xl border border-ink/10 bg-paper/50 px-4 py-3 outline-none" />
+                    <input value={experience.employmentType} onChange={(event) => updateExperience(index, 'employmentType', event.target.value)} placeholder="Full-time, Part-time, etc" className="rounded-2xl border border-ink/10 bg-paper/50 px-4 py-3 outline-none" />
+                    <div className="relative">
+                      <input
+                        ref={(el) => { dateRefs.current[`exp-${index}-start`] = el; }}
+                        type="date"
+                        value={experience.start}
+                        onChange={(event) => updateExperience(index, 'start', event.target.value)}
+                        placeholder="Start date"
+                        className="date-picker-input w-full rounded-2xl border border-ink/10 bg-paper/50 px-4 py-3 pr-10 outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => openDatePicker(`exp-${index}-start`)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-ink/70 hover:text-ink transition"
+                      >
+                        <CalendarDays size={18} />
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <input
+                        ref={(el) => { dateRefs.current[`exp-${index}-end`] = el; }}
+                        type="date"
+                        value={experience.end}
+                        onChange={(event) => updateExperience(index, 'end', event.target.value)}
+                        placeholder="End date"
+                        className="date-picker-input w-full rounded-2xl border border-ink/10 bg-paper/50 px-4 py-3 pr-10 outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => openDatePicker(`exp-${index}-end`)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-ink/70 hover:text-ink transition"
+                      >
+                        <CalendarDays size={18} />
+                      </button>
+                    </div>
                   </div>
                   <button type="button" onClick={() => removeExperience(index)} className="mt-1 p-2 text-coral hover:bg-coral/10 rounded-xl transition">
                     <Trash2 size={18} />
@@ -175,7 +269,11 @@ export function ResumeEditor({ initialData = defaultResume, initialTemplate = 'm
                 </div>
               </div>
             ))}
-          </div>
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-ink/60 italic">You've indicated you have no work experience. You can still add skills, education, and projects to your CV.</p>
+          )}
         </div>
 
         <div className="glass-panel rounded-[28px] p-6 space-y-4">
@@ -200,6 +298,31 @@ export function ResumeEditor({ initialData = defaultResume, initialTemplate = 'm
               </div>
             ))}
           </div>
+          
+          {suggestedSkills.length > 0 && (
+            <div className="mt-4 p-4 rounded-2xl bg-sky/5 border border-sky/20">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles size={16} className="text-sky-600" />
+                <p className="text-sm font-semibold text-ink/70">Suggested skills based on your jobs:</p>
+                {loadingSuggestions && <span className="text-xs text-ink/50">Loading...</span>}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {suggestedSkills.map((skill) => (
+                  <button
+                    key={skill}
+                    type="button"
+                    onClick={() => {
+                      setData({ ...data, skills: [...data.skills, skill] });
+                      setSuggestedSkills(suggestedSkills.filter(s => s !== skill));
+                    }}
+                    className="inline-flex items-center gap-2 rounded-full bg-sky-100 px-3 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-200 transition"
+                  >
+                    <Plus size={14} /> {skill}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="glass-panel rounded-[28px] p-6 space-y-4">

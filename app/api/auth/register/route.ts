@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { toStableUuid } from '@/app/api/resumes/shared';
 
 type RegisterPayload = {
   name: string;
@@ -33,14 +34,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
-  await supabaseAdmin.from('profiles').upsert(
-    {
-      id: data.user.id,
+  const profileId = toStableUuid(data.user.id);
+  const { data: existing } = await supabaseAdmin.from('profiles').select('id').eq('id', profileId).single();
+
+  if (existing) {
+    // Profile exists, update it
+    const { error: updateError } = await supabaseAdmin.from('profiles').update({
       email,
       full_name: name
-    },
-    { onConflict: 'id' }
-  );
+    }).eq('id', profileId);
+
+    if (updateError) {
+      return NextResponse.json({ error: `Failed to update profile: ${updateError.message}` }, { status: 500 });
+    }
+  } else {
+    // Profile doesn't exist, create it
+    const { error: insertError } = await supabaseAdmin.from('profiles').insert({
+      id: profileId,
+      email,
+      full_name: name
+    });
+
+    if (insertError) {
+      return NextResponse.json({ error: `Failed to create profile: ${insertError.message}` }, { status: 500 });
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }

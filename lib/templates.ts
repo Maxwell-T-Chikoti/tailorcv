@@ -14,10 +14,13 @@ export const defaultResume: ResumeData = {
   phone: '+1 (555) 014-2910',
   location: 'Berlin, Germany',
   summary: 'Design systems thinker with a record of shipping clear, conversion-focused product experiences.',
+  hasExperience: true,
   experience: [
     {
       company: 'Northstar Labs',
       role: 'Senior Product Designer',
+      location: 'Berlin, Germany',
+      employmentType: 'Full-time',
       start: '2022',
       end: 'Present',
       highlights: ['Led redesign of the onboarding funnel', 'Improved activation by 18%', 'Built a cross-product component system']
@@ -25,6 +28,8 @@ export const defaultResume: ResumeData = {
     {
       company: 'Blue Harbor',
       role: 'Product Designer',
+      location: 'London, UK',
+      employmentType: 'Full-time',
       start: '2019',
       end: '2022',
       highlights: ['Collaborated with PMs and engineers', 'Simplified enterprise workflows', 'Created user interview synthesis templates']

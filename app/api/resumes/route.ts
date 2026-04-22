@@ -21,17 +21,43 @@ type DeletePayload = {
 async function ensureProfile(userId: string, userName?: string, userEmail?: string) {
   if (!supabaseAdmin) return;
   const profileId = toStableUuid(userId);
+  const email = userEmail || `${userId}@tailorcv.local`;
 
-  await supabaseAdmin
+  const { data: existing } = await supabaseAdmin
     .from('profiles')
-    .upsert(
-      {
+    .select('id')
+    .eq('id', profileId)
+    .single();
+
+  if (existing) {
+    // Profile exists, update it
+    const { error: updateError } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        full_name: userName || 'TailorCV User',
+        email
+      })
+      .eq('id', profileId);
+
+    if (updateError) {
+      console.error('Profile update error:', updateError);
+      throw new Error(`Failed to update profile: ${updateError.message}`);
+    }
+  } else {
+    // Profile doesn't exist, create it
+    const { error: insertError } = await supabaseAdmin
+      .from('profiles')
+      .insert({
         id: profileId,
         full_name: userName || 'TailorCV User',
-        email: userEmail || `${userId}@tailorcv.local`
-      },
-      { onConflict: 'id' }
-    );
+        email
+      });
+
+    if (insertError) {
+      console.error('Profile insert error:', insertError);
+      throw new Error(`Failed to create profile: ${insertError.message}`);
+    }
+  }
 }
 
 export async function GET(request: Request) {
@@ -67,7 +93,12 @@ export async function POST(request: Request) {
 
   const payload = await request.json() as SavePayload;
 
-  await ensureProfile(payload.userId, payload.userName, payload.userEmail);
+  try {
+    await ensureProfile(payload.userId, payload.userName, payload.userEmail);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to create profile';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 
   const profileId = toStableUuid(payload.userId);
   const now = new Date().toISOString();

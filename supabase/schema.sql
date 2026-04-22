@@ -1,6 +1,6 @@
 create table if not exists profiles (
   id uuid primary key,
-  email text unique not null,
+  email text,
   full_name text not null,
   created_at timestamptz default now()
 );

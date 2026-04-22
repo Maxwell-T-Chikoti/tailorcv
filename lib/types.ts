@@ -3,6 +3,8 @@ export type TemplateName = 'modern' | 'minimal' | 'corporate' | 'creative';
 export type ExperienceItem = {
   company: string;
   role: string;
+  location: string;
+  employmentType: string;
   start: string;
   end: string;
   highlights: string[];
@@ -27,6 +29,7 @@ export type ResumeData = {
   phone: string;
   location: string;
   summary: string;
+  hasExperience: boolean;
   experience: ExperienceItem[];
   education: EducationItem[];
   skills: string[];

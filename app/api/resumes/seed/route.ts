@@ -15,29 +15,53 @@ export async function POST(request: Request) {
 
   const payload = await request.json() as SeedPayload;
   const profileId = toStableUuid(payload.userId);
+  const email = payload.userEmail || `${payload.userId}@tailorcv.local`;
 
-  await supabaseAdmin
+  const { data: existingProfile } = await supabaseAdmin
     .from('profiles')
-    .upsert(
-      {
+    .select('id')
+    .eq('id', profileId)
+    .single();
+
+  if (existingProfile) {
+    // Profile exists, update it
+    const { error: updateError } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        full_name: payload.userName || 'TailorCV User',
+        email
+      })
+      .eq('id', profileId);
+
+    if (updateError) {
+      return NextResponse.json({ error: `Failed to update profile: ${updateError.message}` }, { status: 500 });
+    }
+  } else {
+    // Profile doesn't exist, create it
+    const { error: insertError } = await supabaseAdmin
+      .from('profiles')
+      .insert({
         id: profileId,
         full_name: payload.userName || 'TailorCV User',
-        email: payload.userEmail || `${payload.userId}@tailorcv.local`
-      },
-      { onConflict: 'id' }
-    );
+        email
+      });
 
-  const existing = await supabaseAdmin
+    if (insertError) {
+      return NextResponse.json({ error: `Failed to create profile: ${insertError.message}` }, { status: 500 });
+    }
+  }
+
+  const existingResumes = await supabaseAdmin
     .from('resumes')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', profileId);
 
-  if ((existing.count || 0) > 0) {
+  if ((existingResumes.count || 0) > 0) {
     return NextResponse.json({ ok: true, seeded: false });
   }
 
   const now = new Date().toISOString();
-  await supabaseAdmin.from('resumes').insert({
+  const { error: insertError } = await supabaseAdmin.from('resumes').insert({
     id: crypto.randomUUID(),
     user_id: profileId,
     title: 'Product Designer CV',
@@ -49,10 +73,13 @@ export async function POST(request: Request) {
       phone: '+1 (555) 014-2910',
       location: 'Berlin, Germany',
       summary: 'Design systems thinker with a record of shipping clear, conversion-focused product experiences.',
+      hasExperience: true,
       experience: [
         {
           company: 'Northstar Labs',
           role: 'Senior Product Designer',
+          location: 'Berlin, Germany',
+          employmentType: 'Full-time',
           start: '2022',
           end: 'Present',
           highlights: ['Led redesign of the onboarding funnel', 'Improved activation by 18%', 'Built a cross-product component system']
@@ -65,6 +92,10 @@ export async function POST(request: Request) {
     created_at: now,
     updated_at: now
   });
+
+  if (insertError) {
+    return NextResponse.json({ error: `Failed to seed resumes: ${insertError.message}` }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true, seeded: true });
 }

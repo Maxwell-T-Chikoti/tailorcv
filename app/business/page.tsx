@@ -47,14 +47,18 @@ export default function BusinessPage() {
       <section className="relative grid gap-8 rounded-[32px] border border-white/55 bg-white/65 p-8 backdrop-blur-md lg:grid-cols-[1.05fr_0.95fr]">
         <div>
           <p className="text-sm font-semibold uppercase tracking-[0.28em] text-ink/45">For Job Seekers</p>
-          <h1 className="display-font mt-3 text-4xl font-semibold leading-tight md:text-5xl">
-            Land your next role with an <span className="bg-gradient-to-r from-coral to-sky bg-clip-text text-transparent">AI-tailored CV</span>.
+          <h1 className="display-font mt-3 max-w-xl text-4xl font-semibold leading-[1.02] tracking-tight md:text-5xl">
+            <span className="block">Land your next role with an</span>
+            <span className="mt-2 inline-block bg-gradient-to-r from-blue-600 via-teal-500 to-coral bg-clip-text text-transparent">
+              AI-tailored CV
+            </span>
+            <span className="block">that actually gets noticed.</span>
           </h1>
-          <p className="mt-6 max-w-2xl text-lg leading-7 text-ink/75">
+          <p className="mt-6 max-w-2xl text-base leading-7 text-ink/75 md:text-lg">
             Upload once, tailor for every job, and apply with confidence. TailorCV helps you turn generic resumes into targeted applications that recruiters actually notice.
           </p>
 
-          <div className="mt-8 flex flex-wrap gap-3">
+          <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link href="/register" className="inline-flex items-center gap-2 rounded-full bg-ink px-6 py-3 text-sm font-semibold text-paper transition hover:-translate-y-0.5 hover:bg-ink/90">
               Get started for free <ArrowRight size={16} />
             </Link>
